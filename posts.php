@@ -6,10 +6,19 @@ $category_id = isset($_REQUEST['category_id']) ? $_REQUEST['category_id'] : null
 $tag_id = isset($_REQUEST['tag_id']) ? $_REQUEST['tag_id'] : null;
 $q = isset($_REQUEST['q']) ? $_REQUEST['q'] : null;
 $page = isset($_REQUEST['page']) ? $_REQUEST['page'] : 1;
-$page_size = 6.0; //1.0 to test
+$page_size = 6;
 $posts = getPosts($page_size, $page, $category_id, $tag_id, null, $q);
-$postsCount = getCountPosts($category_id, $tag_id, null, $q);
-$pageNum = ceil($postsCount / $page_size);
+$posts_count  = getPostsCount($category_id, $tag_id, null, $q);
+$page_count = ceil($posts_count / $page_size);
+
+function getUrl($p,$category_id,$tag_id,$q)
+{
+    $url = BASE_URL . "/posts.php?page=$p";
+    if ($category_id != null) $url .= "&category_id=$category_id";
+    if ($tag_id != null) $url .= "&tag_id=$tag_id";
+    if ($q != null) $url .= "&q=$q";
+    return $url;
+}
 ?>
 <?php require_once('layout/header.php'); ?>
 <!-- Page Content -->
@@ -47,12 +56,12 @@ $pageNum = ceil($postsCount / $page_size);
                     <div class="row">
                         <?php
                         foreach ($posts as $post) {
-                            ?>
+                        ?>
                             <div class="col-lg-6">
                                 <div class="blog-post">
-                                    <!-- <div class="blog-thumb">
+                                    <div class="blog-thumb">
                                         <img src="<?= BASE_URL . $post['image'] ?>" alt="">
-                                    </div> -->
+                                    </div>
                                     <div class="down-content">
                                         <span><?= $post['category_name'] ?></span>
                                         <a href="<?= BASE_URL . '/post-details.php?id=' . $post['id'] ?>">
@@ -66,7 +75,7 @@ $pageNum = ceil($postsCount / $page_size);
                                         <p><?= $post['content'] ?></p>
                                         <?php
                                         if ($post['tags']) {
-                                            ?>
+                                        ?>
                                             <div class="post-options">
                                                 <div class="row">
                                                     <div class="col-6">
@@ -74,69 +83,48 @@ $pageNum = ceil($postsCount / $page_size);
                                                             <li><i class="fa fa-tags"></i></li>
                                                             <?php
                                                             foreach ($post['tags'] as $tag) {
-                                                                ?>
-                                                                <li><a href="#"><?= $tag['name'] ?></a></li>
+                                                            ?>
+                                                                <li><a href="<?= BASE_URL."/posts.php?tag_id={$tag['id']}"?>"><?= $tag['name'] ?></a></li>
                                                             <?php
-
-                                                        }
-                                                        ?>
+                                                            }
+                                                            ?>
                                                         </ul>
                                                     </div>
                                                 </div>
                                             </div>
                                         <?php
-
-                                    }
-                                    ?>
+                                        }
+                                        ?>
 
                                     </div>
                                 </div>
                             </div>
                         <?php
+                        }
+                        ?>
 
-                    }
-                    ?>
+                    </div>
+                    <div class="col-lg-12">
+                        <ul class="page-numbers">
+                            <?php
+                            $prevUrl = getUrl($page - 1,$category_id,$tag_id,$q);
+                            $nxtUrl = getUrl($page + 1,$category_id,$tag_id,$q);
 
+                            if ($page > 1) echo "<li><a href='{$prevUrl}'><i class='fa fa-angle-double-left'></i></a></li>";
+
+                            for ($i = 1; $i <= $page_count; $i++) {
+                                $url = getUrl($i,$category_id,$tag_id,$q);
+                                echo "<li class=" . ($i == $page ? "active" : "") . "><a href='{$url}'>{$i}</a></li>";
+                            }
+                            
+                            if ($page < $page_count) echo "<li><a href='{$nxtUrl}'><i class='fa fa-angle-double-right'></i></a></li>";
+                            ?>
+                        </ul>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-12">
-                  <ul class="page-numbers">
-                  <?php
-                    if($page!=1){
-                  ?>
-                    <li><a href=<?getPage($page-1,$category_id,$tag_id,null,$q,$pageNum)?><i class="fa fa-angle-double-left"></i></a></li>
-                    <?php
-                    }
-                    ?>
-                  <?php
-                    for ($i = 1; $i <= $pageNum; $i++) {
-                        if ($i != $page) {
-
-                            ?>
-                  
-                  <li><a href=<?=getPage($i,$category_id,$tag_id,null,$q,$pageNum)?>><?= $i ?></a></li>
-                  <?php
-
-                } else {
-                    ?>
-                      <li class="active"><a href=<?=getPage($i,$category_id,$tag_id,null,$q)?>><?= $i ?></a></li>
-                      <?php
-
-                    }
-                }
-                ?>
-                   <?php if ($page != $pageNum&&$postsCount>0) {
-                    ?>
-                    <li><a href=<?=getPage($page+1,$category_id,$tag_id,null,$q,$pageNum)?>><i class="fa fa-angle-double-right"></i></a></li>
-                    <?php
-
-                }
-
-                ?>
-                  </ul>
-                </div>
         </div>
     </div>
 </section>
+
 <?php require_once('layout/footer.php') ?>
