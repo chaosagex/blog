@@ -38,6 +38,16 @@ function getRow($sql, $types = null, $vals = null)
 
 function addData($sql, $types, $vals)
 {
+    return execute($sql, $types, $vals, true);
+}
+
+function editData($sql, $types, $vals)
+{
+    return execute($sql, $types, $vals);
+}
+
+function execute($sql, $types, $vals, $returnLastId = false)
+{
     $conn = getConnection();
     if ($conn) {
         if ($types && $vals) {
@@ -49,33 +59,14 @@ function addData($sql, $types, $vals)
             mysqli_query($conn, $sql);
         }
     }
-    $rowAffected = mysqli_affected_rows($conn);
+    if ($returnLastId)
+        $lastId = mysqli_insert_id($conn);
     mysqli_close($conn);
-    return $rowAffected;
+    if (isset($lastId))
+        return $lastId;
+    return 1;
 }
 
-function editData($sql, $types, $vals)
+function deleteData($sql)
 {
-    $conn = getConnection();
-    if ($conn) {
-        if ($types && $vals) {
-            // var_export($sql);
-            // die();
-            $stmt = mysqli_prepare($conn, $sql);
-            // var_export($stmt);
-            // die();
-            mysqli_stmt_bind_param($stmt, $types, ...$vals);
-            $updated=mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-        } else {
-            mysqli_query($conn, $sql);
-        }
-    }
-    mysqli_close($conn);
-    return $updated;
-}
-
-function deleteData($sql,$types,$vals)
-{
-    return addData($sql,$types,$vals);
 }

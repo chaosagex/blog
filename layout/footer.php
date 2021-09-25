@@ -8,6 +8,7 @@
           <li><a href="#">Behance</a></li>
           <li><a href="#">Linkedin</a></li>
           <li><a href="#">Dribbble</a></li>
+          <li><a href="https://github.com/chaosagex/blog">Github link</a></li>
         </ul>
       </div>
       <div class="col-lg-12">
@@ -39,7 +40,8 @@
     }
   }
 </script>
-
+<script src="<?= BASE_URL ?>/assets/js/post.js"></script>
+<script src="<?= BASE_URL ?>/assets/js/details.js"></script>
 </body>
 
 </html>

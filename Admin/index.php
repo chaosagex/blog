@@ -1,6 +1,7 @@
 <?php
 require_once('../config.php');
 require_once(BASE_PATH . '/logic/posts.php');
+require_once(BASE_PATH . '/logic/users.php');
 require_once(BASE_PATH . '/logic/auth.php');
 require_once(BASE_PATH . '/layout/header.php');
 $page = isset($_REQUEST['page']) ? $_REQUEST['page'] : 1;
@@ -33,7 +34,6 @@ function getSortFlag($field, $oldOrderField, $oldOrderBy)
     }
     return  "";
 }
-isActive();
 $posts = getMyPosts($page_size, $page, getUserId(), $q, $order_field, $order_by);
 $page_count = ceil($posts['count'] / $page_size);
 /*
@@ -49,7 +49,9 @@ $posts = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
             <div class="row">
                 <div class="col-lg-12">
                     <div class="text-content">
-                        <h4>My Posts</h4>
+                        <?php
+                            require_once(BASE_PATH . '/layout/adminHeader.php');
+                        ?>
                     </div>
                 </div>
             </div>
@@ -70,6 +72,15 @@ $posts = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
                             <div class="sidebar-item search">
                                 <form id="search_form" name="gs" method="GET" action="">
                                     <input type="text" class="form-control" value="<?= isset($_REQUEST['q']) ? $_REQUEST['q'] : '' ?>" name="q" class="searchText" placeholder="type to search..." autocomplete="on">
+                                </form>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6"> <a class="btn btn-primary" href="export.php" target="_blank">Export</a></div>
+                            <div class="col-md-6">
+                                <form action="import.php" method="POST" enctype="multipart/form-data">
+                                    <button class="btn btn-primary">Import</button>
+                                    <input type="file" name="csv" style="width: 100px;display:inline" />
                                 </form>
                             </div>
                         </div>
@@ -94,10 +105,9 @@ $posts = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
                                         $tags .= "<span class='tag'>{$tag['name']}</tag>";
                                     }
                                     $img_src = BASE_URL . '/post_images/' . $post['image'];
-                                    $href="<a href=".BASE_URL . '/post-details.php?id=' . $post['id'] .">";
                                     echo "<tr>
                                     <td>$i</td>
-                                    <td>".$href . htmlspecialchars($post['title'])."</a>" . "</td>
+                                    <td>" . htmlspecialchars($post['title']) . "</td>
                                     <td>{$post['category_name']}</td>
                                     <td>{$tags}</td>
                                     <td><img src='{$img_src}' width='200' height='200'/></td>

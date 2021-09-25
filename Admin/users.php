@@ -1,6 +1,6 @@
 <?php
 require_once('../config.php');
-require_once(BASE_PATH . '/logic/posts.php');
+require_once(BASE_PATH . '/logic/users.php');
 require_once(BASE_PATH . '/logic/auth.php');
 require_once(BASE_PATH . '/layout/header.php');
 $page = isset($_REQUEST['page']) ? $_REQUEST['page'] : 1;
@@ -33,11 +33,11 @@ function getSortFlag($field, $oldOrderField, $oldOrderBy)
     }
     return  "";
 }
-isActive();
-$posts = getMyPosts($page_size, $page, getUserId(), $q, $order_field, $order_by);
-$page_count = ceil($posts['count'] / $page_size);
+
+$users = getUsers($page_size, $page, $q, $order_field, $order_by);
+$page_count = ceil($users['count'] / $page_size);
 /*
-$posts = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
+$users = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
 */
 
 ?>
@@ -49,7 +49,9 @@ $posts = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
             <div class="row">
                 <div class="col-lg-12">
                     <div class="text-content">
-                        <h4>My Posts</h4>
+                        <?php
+                            require_once(BASE_PATH . '/layout/adminHeader.php');
+                        ?>
                     </div>
                 </div>
             </div>
@@ -58,14 +60,13 @@ $posts = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
 </div>
 
 <!-- Banner Ends Here -->
-<section class="blog-posts">
+<section class="blog-users">
     <div class="container">
 
         <div class="row">
             <div class="col-lg-12">
                 <div class="all-blog-posts">
                     <div class="row">
-                        <div class="col-md-2"><a href="add.php" class="btn btn-success">Add Post</a></div>
                         <div class="col-md-10">
                             <div class="sidebar-item search">
                                 <form id="search_form" name="gs" method="GET" action="">
@@ -77,37 +78,35 @@ $posts = ['data'=>[],'count'=>100,'order_field'=>'title','order_by'=>'asc']
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th><a href="<?= getSortingUrl('title', $order_field, $order_by, $q) ?>">Title <?= getSortFlag('title', $order_field, $order_by) ?></a></th>
-                                    <th><a href="<?= getSortingUrl('category_name', $order_field, $order_by, $q) ?>">Category <?= getSortFlag('category_name', $order_field, $order_by) ?></a></th>
-                                    <th>Tags</th>
-                                    <th>Image</th>
-                                    <th><a href="<?= getSortingUrl('publish_date', $order_field, $order_by, $q) ?>">Publish Date <?= getSortFlag('publish_date', $order_field, $order_by) ?></a></th>
-                                    <th>Actions</th>
+                                    <th><a href="<?= getSortingUrl('name', $order_field, $order_by, $q) ?>">Name <?= getSortFlag('name', $order_field, $order_by) ?></a></th>
+                                    <th><a href="<?= getSortingUrl('username', $order_field, $order_by, $q) ?>">User Name <?= getSortFlag('username', $order_field, $order_by) ?></a></th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th><a href="<?= getSortingUrl('type', $order_field, $order_by, $q) ?>">Type <?= getSortFlag('type', $order_field, $order_by) ?></a></th>
+                                    <th><a href="<?= getSortingUrl('active', $order_field, $order_by, $q) ?>">Active <?= getSortFlag('active', $order_field, $order_by) ?></a></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php
                                 $i = ($page - 1) * $page_size + 1;
-                                foreach ($posts['data'] as $post) {
-                                    $tags = '';
-                                    foreach ($post['tags'] as $tag) {
-                                        $tags .= "<span class='tag'>{$tag['name']}</tag>";
-                                    }
-                                    $img_src = BASE_URL . '/post_images/' . $post['image'];
-                                    $href="<a href=".BASE_URL . '/post-details.php?id=' . $post['id'] .">";
-                                    echo "<tr>
+                                foreach ($users['data'] as $user) {
+                                    $tableRow= "<tr>
                                     <td>$i</td>
-                                    <td>".$href . htmlspecialchars($post['title'])."</a>" . "</td>
-                                    <td>{$post['category_name']}</td>
-                                    <td>{$tags}</td>
-                                    <td><img src='{$img_src}' width='200' height='200'/></td>
-                                    <td>{$post['publish_date']}</td>
-                                    <td>
-                                    <a href='edit.php?id={$post['id']}' class='btn btn-primary'>Edit</a>
-                                    <a onclick='return confirm(\"Are you sure ?\")' href='delete.php?id={$post['id']}' class='btn btn-danger'>Delete</a>
+                                    <td>{$user['name']}</td>
+                                    <td>{$user['username']}</td>
+                                    <td>{$user['email']}</td>
+                                    <td>{$user['phone']}</td>
+                                    <td>{$user['type']}</td>
+                                    <td>{$user['active']}</td>
+                                    <td>";
+                                    if ($user['active'])
+                                        $tableRow.="<a href='deactivate.php?id={$user['id']}' class='btn btn-danger'>Deactivate</a>";
+                                    else
+                                        $tableRow.="<a href='activate.php?id={$user['id']}' class='btn btn-success'>Activate</a>";
+                                    $tableRow.="<a onclick='return confirm(\"Are you sure ?\")' href='deleteUser.php?id={$user['id']}' class='btn btn-danger'>Delete</a>
                                     </td>
                                     </tr>";
-
+                                    echo $tableRow;
                                     $i++;
                                 }
 

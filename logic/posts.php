@@ -9,7 +9,8 @@ function getPosts(
     $user_id = null,
     $q = null,
     $order_field = "publish_date",
-    $order_by = "desc"
+    $order_by = "desc",
+    $like_by_user_id = null
 ) {
 
     $offset = ($page - 1) * $page_size;
@@ -28,11 +29,31 @@ function getPosts(
     for ($i = 0; $i < count($posts); $i++) {
         $posts[$i]['comments'] = getPostCommentsCount($posts[$i]['id']);
         $posts[$i]['tags'] = getPostTags($posts[$i]['id']);
+        $posts[$i]['likes_count'] = getLikesCount($posts[$i]['id']);
+        if ($like_by_user_id) {
+            $posts[$i]['liked_by_me'] = getIfLikedByMe($posts[$i]['id'], $like_by_user_id);
+        } else
+            $posts[$i]['liked_by_me'] = false;
     }
 
     return $posts;
 }
 
+function getIfLikedByMe($post_id, $user_id)
+{
+    $sql = "SELECT id FROM likes WHERE post_id=? and user_id=?";
+    return getRow($sql, 'ii', [$post_id, $user_id]) != null;
+}
+function getIfFollowedByMe($author, $user_id)
+{
+    $sql = "SELECT id FROM follows WHERE follower_id=? and following_id=?";
+    return getRow($sql, 'ii', [$user_id, $author]) != null;
+}
+function getIfCommentLikedByMe($comment_id, $user_id)
+{
+    $sql = "SELECT id FROM comment_likes WHERE comment_id=? and user_id=?";
+    return getRow($sql, 'ii', [$comment_id, $user_id]) != null;
+}
 function getPostsCount($category_id = null, $tag_id = null, $user_id = null, $q = null)
 {
     $sql = "SELECT count(0) as cnt FROM posts p
@@ -87,6 +108,20 @@ function getPostCommentsCount($postId)
     if ($result == null) return 0;
     return $result['cnt'];
 }
+function getLikesCount($postId)
+{
+    $sql = "SELECT COUNT(0) as cnt FROM likes WHERE post_id=$postId";
+    $result = getRow($sql);
+    if ($result == null) return 0;
+    return $result['cnt'];
+}
+function getCommentLikesCount($comment_id)
+{
+    $sql = "SELECT COUNT(0) as cnt FROM comment_likes WHERE comment_id=$comment_id";
+    $result = getRow($sql);
+    if ($result == null) return 0;
+    return $result['cnt'];
+}
 
 function getPostTags($postId)
 {
@@ -97,11 +132,6 @@ function getPostTags($postId)
 }
 
 function validatePostCreate($request)
-{
-    $errors = [];
-    return $errors;
-}
-function validatePostEdit($request)
 {
     $errors = [];
     return $errors;
@@ -119,66 +149,179 @@ function addNewPost($request, $user_id, $image)
         $user_id
     ]);
     if ($post_id) {
-        if (isset($request['tags'])) {
-            foreach ($request['tags'] as $tag_id) {
-                addData(
-                    "INSERT INTO post_tags (post_id,tag_id) VALUES (?,?)",
-                    'ii',[$post_id,$tag_id]
-                );
-            }
-        }
+        addTags($request, $post_id);
         return true;
     }
     return false;
 }
+function addNewComment($request, $user_id, $date)
+{
+    $sql = "INSERT INTO comments(id,comment,comment_date,post_id,user_id)
+    VALUES (null,?,?,?,?)";
+    $comment_id = addData($sql, 'ssii', [
+        $request['comment'],
+        $date,
+        $request['id'],
+        $user_id
+    ]);
+    if ($comment_id) 
+        return true;
+    return false;
+}
 function getUploadedImage($files)
 {
-    move_uploaded_file($files['image']['tmp_name'],BASE_PATH.'/post_images/'.$files['image']['name']);
-    return $files['image']['name'];
+    $strArr = explode('.', $files['image']['name']);
+    $ext = $strArr[count($strArr) - 1];
+    array_pop($strArr);
+    $fileName = implode('.', $strArr) . '_' . strtotime("now") . '.' . $ext;
+    move_uploaded_file($files['image']['tmp_name'], BASE_PATH . '/post_images/' . $fileName);
+    return $fileName;
 }
-function getPost($id){
-    $sql = "SELECT * FROM posts 
-    WHERE posts.id=?";
-    return getRow($sql,'i',[$id]);   
+
+function getPostById($id)
+{
+    $sql = "SELECT * FROM posts WHERE id=?";
+    $post = getRow($sql, 'i', [$id]);
+    $sql = "SELECT tag_id FROM post_tags WHERE post_id=?";
+    $post['tags'] = getRows($sql, 'i', [$id]);
+    return $post;
 }
-//$sql = "UPDATE posts SET posts(title,content,image,publish_date,updated_at,category_id,user_id)        WHERE posts.id =? VALUES (?,?,?,?,?,?,?,?)";
-function EditPost($request, $img){
-    $sql = "UPDATE posts SET title=?,content=?,";
-    if($img!=null)
-        $sql.="image=?,publish_date=?,updated_at=?,category_id=?
-                WHERE posts.id =? ";
-    else
-    $sql.="publish_date=?,updated_at=?,category_id=?
-            WHERE posts.id =? ";
-    $params=[
-        $request['title'],
-        $request['content']];
-        if($img!=null) 
-            array_push($params,$img);
-        array_push($params,$request['publish_date']);
-        array_push($params,date('Y-m-d H:i:s'));
-        array_push($params,$request['category_id']);
-        array_push($params,$request['pid']);
-        $types='ss';
-        $types.= $img==null?'':'s';
-        $types.='ssii';
-    $successEdit = editData($sql, $types, $params);
-    if ($successEdit) {
-        $sqlTag="DELETE FROM post_tags 
-        WHERE post_id=?";
-        //had to delete tags in case the user removed tags from his posts
-        deleteData($sqlTag,'i',[
-            $request['pid']
-        ]);
-        if (isset($request['tags'])) {
-            foreach ($request['tags'] as $tag_id) {
-                addData(
-                    "INSERT INTO post_tags (post_id,tag_id) VALUES (?,?)",
-                    'ii',[$request['pid'],$tag_id]
-                );
+function getCommentById($id){
+    $sql = "SELECT * FROM comments WHERE id=?";
+    $comment = getRow($sql, 'i', [$id]);
+    return $comment;
+}
+function getPostDetailsById($id,$user=null)
+{
+    $sql = "SELECT * FROM posts WHERE id=?";
+    $post = getRow($sql, 'i', [$id]);
+    $sql="SELECT name FROM categories WHERE id=?";
+    $post['category'] = getRow($sql, 'i', [$post['category_id']]);
+    $sql="SELECT name FROM users WHERE id=?";
+    $post['author'] = getRow($sql, 'i', [$post['user_id']]);
+    $sql = "SELECT * FROM comments WHERE post_id=?";
+    $post['comments'] = getRows($sql, 'i', [$id]);
+    $sql="SELECT name FROM users WHERE id=?";
+    for($i=0;$i<count($post['comments']);$i++){
+        $post['comments'][$i]['author'] = getRow($sql, 'i', [$post['comments'][$i]['user_id']])['name'];
+        if ($user) {
+            $post['comments'][$i]['liked_by_me'] = getIfCommentLikedByMe($post['comments'][$i]['id'], $user);
+        } else
+        $post['comments'][$i]['liked_by_me'] = false;
+        $post['comments'][$i]['likes_count'] = getCommentLikesCount($post['comments'][$i]['id']);
+    }
+        $post['tags'] = getPostTags($post['id']);
+        $post['likes_count'] = getLikesCount($post['id']);
+        if ($user) {
+            $post['liked_by_me'] = getIfLikedByMe($post['id'], $user);
+            $post['followed_by_me'] = getIfFollowedByMe($post['user_id'], $user);
+        } else
+            {
+                $post['liked_by_me'] = false;
+                $post['followed_by_me'] =false;
             }
-        }
+    return $post;
+}
+
+function checkIfUserCanEditPost($post)
+{
+    if (session_status() != PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+    if (!isset($_SESSION['user']))
+        return false;
+    return $_SESSION['user']['type'] == 1 || $_SESSION['user']['id'] == $post['user_id'];
+}
+function checkIfUserCanEditComment($comment){
+    if (session_status() != PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+    if (!isset($_SESSION['user']))
+        return false;
+    return $_SESSION['user']['type'] == 1 || $_SESSION['user']['id'] == $comment['user_id'];
+}
+function validatePostEdit($request)
+{
+    return validatePostCreate($request);
+}
+
+function editPost($id, $request, $image)
+{
+    $types = 'sssi';
+    $vals = [$request['title'], $request['content'], $request['publish_date'], $request['category_id']];
+    $sql = "UPDATE posts SET title=?,content=?,publish_date=?,category_id=?";
+    if ($image) {
+        $types .= 's';
+        $sql .= ",image=?";
+        array_push($vals, $image);
+    }
+    $sql .= " WHERE id=?";
+    $types .= 'i';
+    array_push($vals, $id);
+    if (editData($sql, $types, $vals)) {
+        $sql = "DELETE FROM post_tags WHERE post_id=?";
+        execute($sql, 'i', [$id]);
+        addTags($request, $id);
         return true;
     }
-    return false;   
+    return false;
+}
+
+function addTags($request, $post_id)
+{
+    if (isset($request['tags'])) {
+        foreach ($request['tags'] as $tag_id) {
+            addData(
+                "INSERT INTO post_tags (post_id,tag_id) VALUES (?,?)",
+                'ii',
+                [$post_id, $tag_id]
+            );
+        }
+    }
+}
+
+function deletePost($id)
+{
+    $sql = "DELETE FROM posts WHERE id=?";
+    execute($sql, 'i', [$id]);
+}
+function likePost($id, $user_id)
+{
+    $sql = "INSERT INTO likes (id,post_id,user_id) VALUES (null,?,?)";
+    execute($sql, 'ii', [$id, $user_id]);
+}
+function unlikePost($id, $user_id)
+{
+    $sql = "DELETE FROM likes WHERE post_id=? AND user_id=?";
+    execute($sql, 'ii', [$id, $user_id]);
+}function likeComment($id, $user_id)
+{
+    $sql = "INSERT INTO comment_likes (id,comment_id,user_id,like_date) VALUES (null,?,?,?)";
+    execute($sql, 'iis', [$id ,$user_id,date("Y-m-d")]);
+}
+function unlikeComment($id, $user_id)
+{
+    $sql = "DELETE FROM comment_likes WHERE comment_id=? AND user_id=?";
+    execute($sql, 'ii', [$id, $user_id]);
+}
+function deleteComment($id){
+    $sql = "DELETE FROM comments WHERE id=? ";
+    execute($sql, 'i', [$id]);
+}
+function getPostbyComment($comment){
+
+        $sql = "SELECT post_id FROM comments WHERE id=?";
+        $post = getRow($sql, 'i', [$comment]);
+        return $post['post_id'];
+    
+}
+function followUser($id, $user_id)
+{
+    $sql = "INSERT INTO follows (id,follower_id,following_id,follow_date) VALUES (null,?,?,?)";
+    execute($sql, 'iis', [$user_id ,$id,date("Y-m-d")]);
+}
+function unfollowUser($id, $user_id)
+{
+    $sql = "DELETE FROM follows WHERE following_id=? AND follower_id=?";
+    execute($sql, 'ii', [$id, $user_id]);
 }

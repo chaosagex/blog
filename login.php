@@ -2,12 +2,14 @@
   require_once('./config.php');
   require_once(BASE_PATH . '/logic/auth.php');
   if (isset($_REQUEST['username']) && isset($_REQUEST['password'])) {
-    $success = tryLogin($_REQUEST['username'], $_REQUEST['password']);
+    $success = tryLogin($_REQUEST['username'], $_REQUEST['password'],$errors);
     if ($success) {
       header('Location:index.php');
+      exit;
       die();
     } else {
-      $errors['generic'] = "Please enter a valid username or password";
+      if($errors['Blocked']=="")
+        $errors['generic'] = "Please enter a valid username or password";
     }
   }
   ?>
@@ -24,7 +26,7 @@
             <div class="row">
               <label class="col-md-4">Password:</label> <input name="password" type="password" required class="col-md-8 form-control" />
               <span class="text text-danger"><?= isset($errors['generic']) ? $errors['generic'] : '' ?></span>
-
+              <span class="text text-danger"><?= isset($errors['Blocked']) ? $errors['Blocked'] : '' ?></span>
               <button class="btn btn-success btn-block">Login</button>
           </form>
         </div>
